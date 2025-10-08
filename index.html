@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gemstone Finder</title>
+  <style>
+    :root {
+      --bg: #0b0f14; /* deep slate */
+      --card: #111824; /* card bg */
+      --ink: #e6edf3; /* text */
+      --muted: #9db1c7; /* secondary text */
+      --accent: #4fd1c5; /* teal */
+      --chip: #1a2433;
+      --border: #243142;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--ink); }
+    header { position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(180%) blur(6px); background: linear-gradient(180deg, rgba(11,15,20,0.9), rgba(11,15,20,0.6) 80%, rgba(11,15,20,0)); border-bottom: 1px solid var(--border); }
+    .wrapper { max-width: 1100px; margin: 0 auto; padding: 18px 16px; }
+    h1 { margin: 0 0 8px; font-size: clamp(20px, 4vw, 28px); letter-spacing: .2px; }
+    .sub { color: var(--muted); font-size: 14px; }
+    .headflex { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .headflex .btn { white-space: nowrap; }
+    .controls { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .control { background: var(--card); border: 1px solid var(--border); padding: 10px 12px; border-radius: 12px; display: flex; align-items: center; gap: 10px; }
+    .control input[type="search"] { width: 100%; background: transparent; border: none; outline: none; color: var(--ink); font-size: 15px; }
+    .control select, .control input[type="number"], .control input[type="range"] { width: 100%; background: transparent; border: none; outline: none; color: var(--ink); font-size: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 18px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .name { font-weight: 700; font-size: 18px; }
+    .mohs { font-size: 13px; color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { background: var(--chip); color: var(--ink); padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); }
+    .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 13px; }
+    .kv div { display:flex; justify-content: space-between; gap: 8px; }
+    .kv .k { color: var(--muted); }
+    .kv .v { font-weight: 600; color: var(--ink); }
+    .foot { display:flex; align-items:center; justify-content: space-between; gap:8px; margin-top: 6px; }
+    .btn { appearance: none; background: var(--chip); color: var(--ink); border: 1px solid var(--border); padding: 8px 10px; border-radius: 10px; font-size: 13px; cursor: pointer; }
+    .btn:hover { border-color: #335072; }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    @media (min-width: 720px) {
+      .controls { grid-template-columns: 2fr 1fr 1fr; align-items: start; }
+      .row { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrapper">
+      <div class="headflex">
+        <h1>Gemstone Finder</h1>
+        <button class="btn" id="connectSheet">Connect Google Sheet</button>
+      </div>
+      <div class="sub">Search, filter, and compare gemstones by Mohs hardness, color, optical & physical properties, and common treatments.</div>
+      <div class="controls">
+        <div class="control">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21l-4.3-4.3" stroke="#9db1c7" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="10" r="7" stroke="#9db1c7" stroke-width="2"/></svg>
+          <input id="q" type="search" placeholder="Search by name, color, family, properties… (e.g., &quot;blue, corundum, RI&gt;1.76&quot;)" />
+        </div>
+        <div class="control">
+          <label class="muted" style="min-width:80px">Mohs min</label>
+          <input id="mohsMin" type="number" step="0.1" min="1" max="10" value="1"/>
+          <label class="muted" style="min-width:80px">Mohs max</label>
+          <input id="mohsMax" type="number" step="0.1" min="1" max="10" value="10"/>
+        </div>
+        <div class="control">
+          <label class="muted" style="min-width:80px">Sort</label>
+          <select id="sort">
+            <option value="name">Name (A→Z)</option>
+            <option value="hardness">Hardness (High→Low)</option>
+            <option value="price">Price tier (Low→High)</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="control">
+            <label class="muted" style="min-width:80px">Color</label>
+            <select id="color">
+              <option value="">Any</option>
+              <option>Red</option>
+              <option>Blue</option>
+              <option>Green</option>
+              <option>Yellow</option>
+              <option>Purple</option>
+              <option>Pink</option>
+              <option>Orange</option>
+              <option>Brown</option>
+              <option>Black</option>
+              <option>White/Colorless</option>
+              <option>Multicolor</option>
+            </select>
+          </div>
+          <div class="control">
+            <label class="muted" style="min-width:80px">Family</label>
+            <select id="family">
+              <option value="">Any</option>
+              <option>Corundum</option>
+              <option>Beryl</option>
+              <option>Quartz</option>
+              <option>Feldspar</option>
+              <option>Garnet</option>
+              <option>Olivine</option>
+              <option>Spinel</option>
+              <option>Diamond</option>
+              <option>Opal</option>
+              <option>Tourmaline</option>
+              <option>Topaz</option>
+              <option>Zoisite</option>
+            </select>
+          </div>
+          <div class="control">
+            <label class="muted" style="min-width:80px">Treatment</label>
+            <select id="treatment">
+              <option value="">Any</option>
+              <option>None</option>
+              <option>Heat</option>
+              <option>Irradiation</option>
+              <option>Oil/Resin</option>
+              <option>Dye</option>
+              <option>Fracture Fill</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrapper">
+    <div id="count" class="muted" style="margin-top:10px"></div>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <script>
+    // ===== Data source: Google Sheet (CSV) =====
+    // How to use:
+    // 1) Make a Google Sheet with these columns (case-insensitive):
+    //    name, family, color, colors, hardness, ri, sg, luster, cleavage, toughness,
+    //    treatment_common, properties, price_tier, notes, sources, use
+    //    - For multi-values use semicolons: colors = Blue;Green;Pink
+    //    - sources format: Label|https://link; Label2|https://link2
+    // 2) File → Share → Anyone with the link (Viewer)
+    // 3) File → Share → Publish to web → Link → CSV → copy the URL
+    // 4) Click "Connect Google Sheet" (top-right) and paste the CSV URL. The site will load from it.
+
+    const DEFAULT_DATA = [
+      {
+        name: "Diamond",
+        family: "Diamond",
+        color: "White/Colorless",
+        colors: ["Colorless","Yellow","Brown","Blue","Pink"],
+        hardness: 10,
+        RI: "2.417",
+        SG: 3.52,
+        luster: "Adamantine",
+        cleavage: "Perfect (octahedral)",
+        toughness: "Good",
+        treatment_common: "HPHT, irradiation (fancy colors)",
+        properties: ["High dispersion","Excellent wear"],
+        price_tier: 4,
+        notes: "Best for daily wear; avoid hard knocks along cleavage planes.",
+        sources: [{label:"GIA – Diamond", url:"https://www.gia.edu/diamond"}]
+      },
+      {
+        name: "Ruby",
+        family: "Corundum",
+        color: "Red",
+        colors: ["Red"],
+        hardness: 9,
+        RI: "1.762–1.770",
+        SG: 4.0,
+        luster: "Vitreous",
+        cleavage: "None (parting)",
+        toughness: "Good",
+        treatment_common: "Heat",
+        properties: ["Durable","Strong pleochroism"],
+        price_tier: 4,
+        notes: "Fracture-filled stones need gentle care.",
+        sources: [{label:"GIA – Ruby", url:"https://www.gia.edu/ruby"}]
+      },
+      {
+        name: "Sapphire",
+        family: "Corundum",
+        color: "Blue",
+        colors: ["Blue","Yellow","Pink","Green","Colorless"],
+        hardness: 9,
+        RI: "1.762–1.770",
+        SG: 4.0,
+        luster: "Vitreous",
+        cleavage: "None (parting)",
+        toughness: "Good",
+        treatment_common: "Heat",
+        properties: ["Durable","Pleochroic"],
+        price_tier: 3,
+        notes: "Diffusion-treated stones show color concentrated near surface.",
+        sources: [{label:"GIA – Sapphire", url:"https://www.gia.edu/sapphire"}]
+      },
+      {
+        name: "Emerald",
+        family: "Beryl",
+        color: "Green",
+        colors: ["Green"],
+        hardness: 7.5,
+        RI: "1.565–1.602",
+        SG: 2.72,
+        luster: "Vitreous",
+        cleavage: "Indistinct",
+        toughness: "Fair to Poor",
+        treatment_common: "Oil/Resin",
+        properties: ["Visible inclusions common","Brittle"],
+        price_tier: 4,
+        notes: "Avoid ultrasonic cleaners; oil/resin can be affected by heat.",
+        sources: [{label:"GIA – Emerald", url:"https://www.gia.edu/emerald"}]
+      },
+      {
+        name: "Amethyst",
+        family: "Quartz",
+        color: "Purple",
+        colors: ["Purple"],
+        hardness: 7,
+        RI: "1.544–1.553",
+        SG: 2.65,
+        luster: "Vitreous",
+        cleavage: "None",
+        toughness: "Good",
+        treatment_common: "Heat, irradiation",
+        properties: ["Affordable","Widely available"],
+        price_tier: 1,
+        notes: "Suitable for daily wear with care.",
+        sources: [{label:"GIA – Amethyst", url:"https://www.gia.edu/amethyst"}]
+      },
+      {
+        name: "Aquamarine",
+        family: "Beryl",
+        color: "Blue",
+        colors: ["Blue","Greenish blue"],
+        hardness: 7.5,
+        RI: "1.577–1.583",
+        SG: 2.72,
+        luster: "Vitreous",
+        cleavage: "Indistinct",
+        toughness: "Good",
+        treatment_common: "Heat",
+        properties: ["Usually eye-clean"],
+        price_tier: 2,
+        notes: "Generally durable for rings.",
+        sources: [{label:"GIA – Aquamarine", url:"https://www.gia.edu/aquamarine"}]
+      },
+      {
+        name: "Topaz",
+        family: "Topaz",
+        color: "Blue",
+        colors: ["Blue","Colorless","Imperial (orange-pink)"],
+        hardness: 8,
+        RI: "1.609–1.643",
+        SG: 3.56,
+        luster: "Vitreous",
+        cleavage: "Perfect (basal)",
+        toughness: "Poor to Fair",
+        treatment_common: "Irradiation + heat (blue)",
+        properties: ["High clarity"],
+        price_tier: 1,
+        notes: "Avoid sharp knocks; cleavage makes it fragile.",
+        sources: [{label:"GIA – Topaz", url:"https://www.gia.edu/topaz-description"}]
+      },
+      {
+        name: "Garnet",
+        family: "Garnet",
+        color: "Red",
+        colors: ["Red","Wine","Orange","Green"],
+        hardness: 7.5,
+        RI: "1.76–1.81",
+        SG: 4.0,
+        luster: "Vitreous",
+        cleavage: "None",
+        toughness: "Good",
+        treatment_common: "Usually none",
+        properties: ["Single refractive","Rich color"],
+        price_tier: 1,
+        notes: "Many species (almandine, pyrope, grossular, etc.); properties vary slightly.",
+        sources: [{label:"GIA – Garnet", url:"https://www.gia.edu/garnet"}]
+      },
+      {
+        name: "Opal",
+        family: "Opal",
+        color: "Multicolor",
+        colors: ["White","Black","Crystal","Fire"],
+        hardness: 5.5,
+        RI: "1.37–1.52",
+        SG: 2.15,
+        luster: "Waxy to vitreous",
+        cleavage: "None",
+        toughness: "Poor to Fair",
+        treatment_common: "Smoke, sugar-acid (some types)",
+        properties: ["Play-of-color"],
+        price_tier: 2,
+        notes: "Sensitive to dryness, rapid temperature change, and shock.",
+        sources: [{label:"GIA – Opal", url:"https://www.gia.edu/opal"}]
+      },
+      {
+        name: "Tanzanite",
+        family: "Zoisite",
+        color: "Blue",
+        colors: ["Violet-blue","Blue","Purple"],
+        hardness: 6.5,
+        RI: "1.691–1.700",
+        SG: 3.35,
+        luster: "Vitreous",
+        cleavage: "Perfect in one direction",
+        toughness: "Poor",
+        treatment_common: "Heat (near-universal)",
+        properties: ["Strong pleochroism","Vivid violet-blue"],
+        price_tier: 3,
+        notes: "Best for pendants/earrings; protect from abrasion and avoid ultrasonic/steam cleaners.",
+        sources: [{label:"GIA – Tanzanite", url:"https://www.gia.edu/tanzanite"}]
+      },
+      {
+        name: "Morganite",
+        family: "Beryl",
+        color: "Pink",
+        colors: ["Pink","Peach"],
+        hardness: 7.5,
+        RI: "1.577–1.583",
+        SG: 2.71,
+        luster: "Vitreous",
+        cleavage: "Indistinct",
+        toughness: "Good",
+        treatment_common: "Heat",
+        properties: ["Light pastel tones"],
+        price_tier: 2,
+        notes: "Good for occasional wear.",
+        sources: [{label:"GIA – Morganite", url:"https://www.gia.edu/morganite"}]
+      }
+    ];
+
+    let ITEMS = [];
+    let SHEET_CSV_URL = localStorage.getItem('gem_csv_url') || '';
+
+    async function loadData(){
+      if(!SHEET_CSV_URL){ ITEMS = DEFAULT_DATA; render(); return; }
+      try{
+        const res = await fetch(SHEET_CSV_URL, {cache:'no-store'});
+        if(!res.ok) throw new Error('Fetch failed');
+        const csv = await res.text();
+        const rows = parseCSV(csv);
+        const items = normalizeRows(rows);
+        if(items.length){ ITEMS = items; } else { ITEMS = DEFAULT_DATA; console.warn('CSV parsed but empty; using default'); }
+      }catch(e){
+        console.warn('Error loading sheet, falling back to default:', e);
+        ITEMS = DEFAULT_DATA;
+      }
+      render();
+    }
+
+    function parseCSV(text){
+      // Robust-ish CSV parser: handles commas in quotes and escaped quotes
+      const rows = [];
+      let i=0, field='', row=[], inQuotes=false;
+      while(i < text.length){
+        const c = text[i];
+        if(c === '"'){
+          if(inQuotes && text[i+1] === '"'){ field += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if(c === ',' && !inQuotes){
+          row.push(field); field='';
+        } else if((c === '\n' || c === '\r') && !inQuotes){
+          if(field!=='' || row.length){ row.push(field); rows.push(row); row=[]; field=''; }
+        } else {
+          field += c;
+        }
+        i++;
+      }
+      if(field!=='' || row.length){ row.push(field); rows.push(row); }
+      // trim whitespace
+      return rows.map(r=> r.map(v=> v.trim()));
+    }
+
+    function normalizeRows(rows){
+      if(!rows.length) return [];
+      const header = rows[0].map(h=> h.toLowerCase());
+      const idx = k=> header.indexOf(k);
+      const get = (r,k)=>{ const j=idx(k); return j>=0? r[j]:''; };
+      const toNum = v=>{ const x=parseFloat((v||'').replace(/[^0-9.\-]/g,'')); return isNaN(x)? undefined : x; };
+      const toArr = v=> (v||'').split(/;|\u061B/).map(s=> s.trim()).filter(Boolean);
+      const toSources = v=> toArr(v).map(s=>{ const m=s.split('|'); return {label:(m[0]||'Source').trim(), url:(m[1]||'').trim()}; }).filter(x=> x.url);
+
+      const out = [];
+      for(let r=1; r<rows.length; r++){
+        const row = rows[r];
+        if(row.every(c=> !c || !c.trim())) continue; // skip blank
+        const item = {
+          name: get(row,'name') || get(row,'gemstone') || get(row,'title'),
+          family: get(row,'family'),
+          color: get(row,'color') || '—',
+          colors: toArr(get(row,'colors')),
+          hardness: toNum(get(row,'hardness')),
+          RI: get(row,'ri') || get(row,'refractive index') || get(row,'refractive_index'),
+          SG: toNum(get(row,'sg')),
+          luster: get(row,'luster'),
+          cleavage: get(row,'cleavage'),
+          toughness: get(row,'toughness'),
+          treatment_common: get(row,'treatment_common') || get(row,'treatments'),
+          properties: toArr(get(row,'properties')),
+          price_tier: toNum(get(row,'price_tier')),
+          notes: get(row,'notes'),
+          use: get(row,'use'),
+          sources: toSources(get(row,'sources'))
+        };
+        if(item.name) out.push(item);
+      }
+      return out;
+    }
+
+    function priceLabel(n){ return ({1:'$ (Budget)',2:'$$ (Moderate)',3:'$$$ (Premium)',4:'$$$$ (Luxury)'}[n] || '—'); }
+
+    function useTag(d){
+      if(d.use) return d.use;
+      const hard = Number(d.hardness)||0;
+      const tough = (d.toughness||'').toLowerCase();
+      const cleavage = (d.cleavage||'').toLowerCase();
+      // Heuristics
+      if(hard>=9 && /good|excellent/.test(tough) && !/perfect/.test(cleavage)) return 'Daily ring';
+      if(hard>=7.5 && /good|excellent/.test(tough) && !/perfect/.test(cleavage)) return 'Frequent ring';
+      if(hard>=6.5 && (!/poor/.test(tough) || tough==='') ) return 'Occasional ring';
+      return 'Pendant/Earrings';
+    }
+
+    // DOM references
+    const grid = document.getElementById('grid');
+    const count = document.getElementById('count');
+    const q = document.getElementById('q');
+    const mohsMin = document.getElementById('mohsMin');
+    const mohsMax = document.getElementById('mohsMax');
+    const color = document.getElementById('color');
+    const family = document.getElementById('family');
+    const treatment = document.getElementById('treatment');
+    const sort = document.getElementById('sort');
+    const connectBtn = document.getElementById('connectSheet');
+
+    connectBtn.addEventListener('click', ()=>{
+      const current = localStorage.getItem('gem_csv_url') || '';
+      const url = prompt('Paste your published Google Sheet CSV URL:', current || 'https://docs.google.com/spreadsheets/d/.../pub?output=csv');
+      if(url && url.startsWith('http')){
+        localStorage.setItem('gem_csv_url', url);
+        SHEET_CSV_URL = url;
+        loadData();
+      }
+    });
+
+    function normalize(str){ return (str||'').toString().toLowerCase(); }
+
+    function compare(a, op, b){ return ({">": a>b, "<": a<b, ">=": a>=b, "<=": a<=b})[op]; }
+
+    function matchesQuery(item, query){
+      if(!query) return true;
+      const hay = [
+        item.name, item.family, item.color, (item.colors||[]).join(' '),
+        item.RI, item.SG, item.luster, item.cleavage, item.toughness,
+        item.treatment_common, (item.properties||[]).join(' ')
+      ].map(normalize).join(' | ');
+
+      // allow simple expressions like RI>1.76 or SG<3.0
+      const riMatch = query.match(/ri\s*([<>]=?)\s*(\d+(?:\.\d+)?)/i);
+      const sgMatch = query.match(/sg\s*([<>]=?)\s*(\d+(?:\.\d+)?)/i);
+      let ok = hay.includes(normalize(query));
+      if(riMatch && item.RI){
+        const op = riMatch[1]; const val = parseFloat(riMatch[2]);
+        const mid = parseFloat(((item.RI+"").split('–')[0]).split('-')[0]);
+        if(!isNaN(mid)){
+          ok = ok || compare(mid, op, val);
+        }
+      }
+      if(sgMatch && item.SG){
+        const op = sgMatch[1]; const val = parseFloat(sgMatch[2]);
+        ok = ok || compare(parseFloat(item.SG), op, val);
+      }
+      return ok;
+    }
+
+    function render(){
+      const query = q.value.trim();
+      const minH = parseFloat(mohsMin.value)||1, maxH = parseFloat(mohsMax.value)||10;
+      let items = ITEMS.filter(d=> d.hardness>=minH && d.hardness<=maxH);
+      if(color.value) items = items.filter(d=> d.color === color.value);
+      if(family.value) items = items.filter(d=> d.family === family.value);
+      if(treatment.value){
+        if(treatment.value === 'None') items = items.filter(d=> normalize(d.treatment_common).includes('none'));
+        else items = items.filter(d=> normalize(d.treatment_common).includes(normalize(treatment.value)));
+      }
+      if(query) items = items.filter(d=> matchesQuery(d, query));
+
+      if(sort.value === 'name') items.sort((a,b)=> a.name.localeCompare(b.name));
+      if(sort.value === 'hardness') items.sort((a,b)=> b.hardness - a.hardness);
+      if(sort.value === 'price') items.sort((a,b)=> (a.price_tier||99) - (b.price_tier||99));
+
+      count.textContent = `${items.length} gemstones shown ${SHEET_CSV_URL? '· Google Sheet' : '· Built-in demo data'}`;
+      grid.innerHTML = items.map(renderCard).join('');
+    }
+
+    function renderCard(d){
+      const links = (d.sources||[]).map(s=> `<a class="muted" href="${s.url}" target="_blank" rel="noopener">${s.label}</a>`).join(' · ');
+      return `
+        <article class="card">
+          <div class="title">
+            <div class="name">${d.name}</div>
+            <div class="mohs">Mohs ${d.hardness}</div>
+          </div>
+          <div class="chips">
+            <span class="chip">${d.family}</span>
+            <span class="chip">${d.color}</span>
+            ${(d.colors||[]).slice(0,3).map(c=>`<span class="chip">${c}</span>`).join('')}
+            <span class="chip">${d.luster||''}</span>
+            <span class="chip">${useTag(d)}</span>
+          </div>
+          <div class="kv">
+            <div><span class="k">RI</span><span class="v">${d.RI||'—'}</span></div>
+            <div><span class="k">SG</span><span class="v">${d.SG||'—'}</span></div>
+            <div><span class="k">Cleavage</span><span class="v">${d.cleavage||'—'}</span></div>
+            <div><span class="k">Toughness</span><span class="v">${d.toughness||'—'}</span></div>
+            <div><span class="k">Treatments</span><span class="v">${d.treatment_common||'—'}</span></div>
+            <div><span class="k">Price</span><span class="v">${priceLabel(d.price_tier)}</span></div>
+          </div>
+          ${(d.properties&&d.properties.length) ? `<div class="muted">${d.properties.join(' • ')}</div>` : ''}
+          ${d.notes ? `<div class="muted">Note: ${d.notes}</div>` : ''}
+          <div class="foot">
+            <button class="btn" onclick='alert(JSON.stringify(${JSON.stringify({"placeholder":"data will show in quick view"})}.placeholder?{...d}:d, null, 2))'>Quick view</button>
+            <div class="muted">${links}</div>
+          </div>
+        </article>
+      `;
+    }
+
+    ['input','change','keyup'].forEach(evt=>{
+      q.addEventListener(evt, render);
+      mohsMin.addEventListener(evt, render);
+      mohsMax.addEventListener(evt, render);
+      color.addEventListener(evt, render);
+      family.addEventListener(evt, render);
+      treatment.addEventListener(evt, render);
+      sort.addEventListener(evt, render);
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
